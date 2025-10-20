@@ -11,10 +11,29 @@ const parseCSV = async (): Promise<InventoryItem[]> => {
   try {
     let csvText: string;
     if (isServer) {
-      const fs = await import('fs/promises');
-      const path = await import('path');
-      const csvPath = path.join(process.cwd(), 'public', 'equipment.csv');
-      csvText = await fs.readFile(csvPath, 'utf-8');
+      // Attempt to read from the filesystem (Node runtimes). Some server
+      // runtimes (Edge) don't provide fs, so we gracefully fall back to
+      // fetching via HTTP below.
+      try {
+        const fsModule = 'fs/promises';
+        const pathModule = 'path';
+        const fs = await import(fsModule as any);
+        const path = await import(pathModule as any);
+        const csvPath = path.join(process.cwd(), 'public', 'equipment.csv');
+        csvText = await fs.readFile(csvPath, 'utf-8');
+      } catch (err) {
+        // If fs isn't available (for example, Edge runtime), fall back to
+        // fetching the publicly served CSV. Prefer explicit env var if set,
+        // otherwise use VERCEL_URL or localhost with the current PORT.
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+          ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined)
+          ?? `http://localhost:${process.env.PORT ?? process.env.NEXT_DEV_PORT ?? 9003}`;
+
+        const csvUrl = `${baseUrl.replace(/\/$/, '')}/equipment.csv`;
+        const res = await fetch(csvUrl);
+        if (!res.ok) throw new Error(`Failed to fetch CSV (fallback): ${res.status} from ${csvUrl}`);
+        csvText = await res.text();
+      }
     } else {
       const csvUrl = `/equipment.csv`;
       const res = await fetch(csvUrl);

@@ -5,6 +5,7 @@ import { useState, useMemo, useCallback } from 'react';
 import FilterControls from './FilterControls';
 import InventoryList from './InventoryList';
 import EditItemModal from './EditItemModal';
+import CreateItemModal from './CreateItemModal';
 import { updateInventoryItem } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
 
@@ -19,6 +20,7 @@ export default function InventoryDashboard({ initialItems }: InventoryDashboardP
   const [selectedLocation, setSelectedLocation] = useState('All');
   const [showBrokenOnly, setShowBrokenOnly] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   const { toast } = useToast();
 
@@ -69,6 +71,7 @@ export default function InventoryDashboard({ initialItems }: InventoryDashboardP
         locations={locations}
         showBrokenOnly={showBrokenOnly}
         setShowBrokenOnly={setShowBrokenOnly}
+        onCreate={() => setIsCreating(true)}
       />
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
         <InventoryList
@@ -86,6 +89,32 @@ export default function InventoryDashboard({ initialItems }: InventoryDashboardP
           isOpen={!!editingItem}
           onClose={handleCloseModal}
           onSave={handleSave}
+        />
+      )}
+      {/* Create modal */}
+      {isCreating && (
+        <CreateItemModal
+          isOpen={isCreating}
+          onClose={() => setIsCreating(false)}
+          onCreate={async (item) => {
+            try {
+              const res = await fetch('/api/equipment/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item),
+              });
+              if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err?.error || 'Create failed');
+              }
+              setItems((prev) => [item, ...prev]);
+              toast({ title: 'Created', description: `${item.name} added.` });
+            } catch (e: any) {
+              toast({ title: 'Error', description: e?.message || 'Failed to create item', variant: 'destructive' });
+            } finally {
+              setIsCreating(false);
+            }
+          }}
         />
       )}
     </div>

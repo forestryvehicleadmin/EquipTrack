@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 
 type FilterControlsProps = {
@@ -22,6 +23,7 @@ type FilterControlsProps = {
   locations: string[];
   showBrokenOnly: boolean;
   setShowBrokenOnly: (value: boolean) => void;
+  onCreate?: () => void;
 };
 
 export default function FilterControls({
@@ -35,9 +37,15 @@ export default function FilterControls({
   locations,
   showBrokenOnly,
   setShowBrokenOnly,
+  onCreate,
 }: FilterControlsProps) {
   return (
     <div className="flex flex-col md:flex-row items-center gap-4 p-4 bg-card/80 backdrop-blur-sm border-b">
+      <div className="flex items-center gap-2 w-full md:w-auto md:flex-1">
+        {onCreate && (
+          <Button variant="default" size="sm" onClick={onCreate}>New Item</Button>
+        )}
+      </div>
       <div className="w-full md:w-auto md:flex-1">
         <Input
           placeholder="Search by name..."

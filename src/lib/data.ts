@@ -1,86 +1,119 @@
-import type { InventoryItem } from '@/lib/types';
 
-// In-memory store to simulate a database
-let inventoryItems: InventoryItem[] = [
-  {
-    id: '1',
-    name: 'Pulaski Axe',
-    description: 'A versatile hand tool used for constructing firebreaks, as it can be used to both dig soil and chop wood.',
-    category: 'Forestry Tools',
-    quantity: { total: 10, storage: 5, lockers: 3, checkedOut: 2 },
-    condition: { good: 8, fair: 1, poor: 1, broken: 0 },
-  },
-  {
-    id: '2',
-    name: 'Shovel',
-    description: 'A tool for digging, lifting, and moving bulk materials, such as soil, coal, gravel, snow, sand, or ore.',
-    category: 'Forestry Tools',
-    quantity: { total: 15, storage: 10, lockers: 5, checkedOut: 0 },
-    condition: { good: 12, fair: 3, poor: 0, broken: 0 },
-  },
-  {
-    id: '3',
-    name: 'Hard Hat',
-    description: 'A type of helmet predominantly used in workplace environments such as industrial or construction sites to protect the head from injury.',
-    category: 'Safety Gear',
-    quantity: { total: 20, storage: 10, lockers: 10, checkedOut: 0 },
-    condition: { good: 19, fair: 1, poor: 0, broken: 0 },
-  },
-  {
-    id: '4',
-    name: 'Safety Goggles',
-    description: 'Protective eyewear that enclose or protect the area surrounding the eye in order to prevent particulates, water or chemicals from striking the eyes.',
-    category: 'Safety Gear',
-    quantity: { total: 25, storage: 15, lockers: 5, checkedOut: 5 },
-    condition: { good: 20, fair: 4, poor: 0, broken: 1 },
-  },
-  {
-    id: '5',
-    name: '4-Person Tent',
-    description: 'A portable shelter made of fabric, supported by poles. Designed to house four people.',
-    category: 'Camping Equipment',
-    quantity: { total: 5, storage: 1, lockers: 2, checkedOut: 2 },
-    condition: { good: 3, fair: 1, poor: 1, broken: 0 },
-  },
-  {
-    id: '6',
-    name: 'GPS Unit',
-    description: 'A handheld Global Positioning System receiver for navigation.',
-    category: 'Electronics',
-    quantity: { total: 8, storage: 2, lockers: 3, checkedOut: 3 },
-    condition: { good: 6, fair: 1, poor: 1, broken: 0 },
-  },
-  {
-    id: '7',
-    name: 'First-Aid Kit',
-    description: 'A collection of supplies and equipment that is used to give medical treatment.',
-    category: 'Safety Gear',
-    quantity: { total: 12, storage: 12, lockers: 0, checkedOut: 0 },
-    condition: { good: 12, fair: 0, poor: 0, broken: 0 },
-  },
-    {
-    id: '8',
-    name: 'Chainsaw',
-    description: 'A portable power saw that cuts with a set of teeth attached to a rotating chain.',
-    category: 'Uncategorized',
-    quantity: { total: 3, storage: 0, lockers: 1, checkedOut: 2 },
-    condition: { good: 1, fair: 1, poor: 0, broken: 1 },
-  },
-];
+import type { InventoryItem } from '@/lib/types';
+import Papa from 'papaparse';
+
+const getBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    // In the browser, we can use a relative path
+    return '';
+  }
+  // On the server, we need an absolute path
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL;
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  // A fallback for local development
+  return 'http://localhost:9002';
+};
+
+// Function to fetch and parse the CSV file
+const parseCSV = (): Promise<InventoryItem[]> => {
+  const csvUrl = `${getBaseUrl()}/equipment.csv`;
+  return new Promise((resolve, reject) => {
+    fetch(csvUrl)
+      .then(response => {
+        if (!response.ok) {
+          return reject(new Error(`Failed to fetch CSV: ${response.statusText} from ${csvUrl}`));
+        }
+        return response.text();
+      })
+      .then(csvText => {
+        Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+            const items: InventoryItem[] = results.data.map((row: any, index: number) => {
+              const quantity_good = parseInt(row.Quantity_Good, 10) || 0;
+              const quantity_fair = parseInt(row.Quantity_Fair, 10) || 0;
+              const quantity_poor = parseInt(row.Quantity_Poor, 10) || 0;
+              const quantity_broken = parseInt(row.Quantity_Broken, 10) || 0;
+
+              const quantity_storage = parseInt(row.Quantity_Storage, 10) || 0;
+              const quantity_lockers = parseInt(row.Quantity_lockers, 10) || 0;
+              const quantity_checkout = parseInt(row.Quantity_checkout, 10) || 0;
+
+              return {
+                id: row.EquipmentTypeID || `${index}`,
+                name: row.Name,
+                description: row.Notes || '',
+                category: row.Category,
+                quantity: {
+                  total: quantity_good + quantity_fair + quantity_poor + quantity_broken,
+                  storage: quantity_storage,
+                  lockers: quantity_lockers,
+                  checkedOut: quantity_checkout,
+                },
+                condition: {
+                  good: quantity_good,
+                  fair: quantity_fair,
+                  poor: quantity_poor,
+                  broken: quantity_broken,
+                },
+              };
+            });
+            resolve(items);
+          },
+          error: (error: any) => {
+            reject(error);
+          },
+        });
+      })
+      .catch(error => reject(error));
+  });
+};
+
+let inventoryItems: InventoryItem[] = [];
+let dataInitialized = false;
+
+// Initialize the data
+const initializeData = async () => {
+  if (dataInitialized) return;
+  try {
+    inventoryItems = await parseCSV();
+    dataInitialized = true;
+  } catch (error) {
+    console.error("Failed to parse CSV:", error);
+    dataInitialized = false; // Allow re-initialization on next call
+  }
+};
+
+// We call this to ensure data is loaded before it is used.
+initializeData();
 
 // Simulate network latency
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function getInventoryItems(): Promise<InventoryItem[]> {
   await delay(50); // Simulate a short network delay
-  return JSON.parse(JSON.stringify(inventoryItems)); // Return a deep copy
+  if (!dataInitialized) {
+    // If the inventory is empty or initialization failed, try again
+    await initializeData();
+  }
+  // Return a deep copy to prevent mutation of the original data
+  return JSON.parse(JSON.stringify(inventoryItems));
 }
 
 export async function updateInventoryItem(updatedItem: InventoryItem): Promise<InventoryItem> {
   await delay(100); // Simulate a short network delay
+  if (!dataInitialized) {
+    await initializeData();
+  }
   const index = inventoryItems.findIndex(item => item.id === updatedItem.id);
   if (index !== -1) {
     inventoryItems[index] = updatedItem;
+    // Note: This will not persist changes to the CSV file.
     return JSON.parse(JSON.stringify(updatedItem));
   }
   throw new Error('Item not found');

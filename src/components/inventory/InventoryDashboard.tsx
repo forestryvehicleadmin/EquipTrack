@@ -1,7 +1,7 @@
 'use client';
 
 import type { InventoryItem } from '@/lib/types';
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import FilterControls from './FilterControls';
 import InventoryList from './InventoryList';
 import EditItemModal from './EditItemModal';
@@ -22,10 +22,12 @@ export default function InventoryDashboard({ initialItems }: InventoryDashboardP
 
   const { toast } = useToast();
 
-  const categories = ['All', ...Array.from(new Set(initialItems.map(item => item.category).filter(Boolean)))];
+  const categories = useMemo(() => 
+    ['All', ...Array.from(new Set(initialItems.map(item => item.category).filter(Boolean)))]
+  , [initialItems]);
   const locations = ['All', 'In Storage', 'In Lockers', 'Checked Out'];
 
-  const handleSave = async (updatedFormData: InventoryItem) => {
+  const handleSave = useCallback(async (updatedFormData: InventoryItem) => {
     try {
       const savedItem = await updateInventoryItem(updatedFormData);
       setItems(prevItems =>
@@ -44,8 +46,15 @@ export default function InventoryDashboard({ initialItems }: InventoryDashboardP
     } finally {
       setEditingItem(null);
     }
-  };
+  }, [toast]);
 
+  const handleEditItem = useCallback((item: InventoryItem) => {
+    setEditingItem(item);
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setEditingItem(null);
+  }, []);
 
   return (
     <div className="flex flex-col h-full">
@@ -68,14 +77,14 @@ export default function InventoryDashboard({ initialItems }: InventoryDashboardP
           selectedCategory={selectedCategory}
           selectedLocation={selectedLocation}
           showBrokenOnly={showBrokenOnly}
-          onEditItem={setEditingItem}
+          onEditItem={handleEditItem}
         />
       </div>
       {editingItem && (
         <EditItemModal
           item={editingItem}
           isOpen={!!editingItem}
-          onClose={() => setEditingItem(null)}
+          onClose={handleCloseModal}
           onSave={handleSave}
         />
       )}

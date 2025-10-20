@@ -17,7 +17,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useEffect, useState } from 'react';
-import { suggestCategoryAction } from '@/app/actions';
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Sparkles } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
@@ -65,18 +64,23 @@ export default function EditItemModal({ item, isOpen, onClose, onSave }: EditIte
 
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
-    defaultValues: {
-      name: item.name,
-      description: item.description,
-      category: item.category,
-      quantity_lockers: item.quantity.lockers,
-      quantity_checkedOut: item.quantity.checkedOut,
-      condition_good: item.condition.good,
-      condition_fair: item.condition.fair,
-      condition_poor: item.condition.poor,
-      condition_broken: item.condition.broken,
-    },
   });
+
+  useEffect(() => {
+    if (item) {
+      form.reset({
+        name: item.name,
+        description: item.description,
+        category: item.category,
+        quantity_lockers: item.quantity.lockers,
+        quantity_checkedOut: item.quantity.checkedOut,
+        condition_good: item.condition.good,
+        condition_fair: item.condition.fair,
+        condition_poor: item.condition.poor,
+        condition_broken: item.condition.broken,
+      });
+    }
+  }, [item, form.reset]);
 
   const watchedValues = form.watch();
 
@@ -100,20 +104,7 @@ export default function EditItemModal({ item, isOpen, onClose, onSave }: EditIte
         total: newTotal,
         storage: newStorage
     });
-  }, [watchedValues]);
-
-  const handleSuggestCategory = async () => {
-    setIsSuggesting(true);
-    const { name, description } = form.getValues();
-    const result = await suggestCategoryAction(name, description);
-    if (result.category) {
-      form.setValue('category', result.category);
-      toast({ title: 'Suggestion applied!', description: `Category set to "${result.category}".` });
-    } else {
-      toast({ variant: 'destructive', title: 'Error', description: result.error || 'Could not get suggestion.' });
-    }
-    setIsSuggesting(false);
-  };
+  }, [watchedValues.condition_good, watchedValues.condition_fair, watchedValues.condition_poor, watchedValues.condition_broken, watchedValues.quantity_lockers, watchedValues.quantity_checkedOut]);
   
   const handleBlur = (fieldName: keyof FormValues) => (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const value = evaluateMathExpression(e.target.value);
@@ -163,10 +154,7 @@ export default function EditItemModal({ item, isOpen, onClose, onSave }: EditIte
                   <Label htmlFor="category">Category</Label>
                   <div className="flex gap-2">
                     <Input id="category" {...form.register('category')} />
-                    <Button type="button" variant="outline" onClick={handleSuggestCategory} disabled={isSuggesting}>
-                      {isSuggesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                      <span className="ml-2 hidden sm:inline">Suggest</span>
-                    </Button>
+                    
                   </div>
                 </div>
               </div>

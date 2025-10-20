@@ -2,39 +2,33 @@
 import type { InventoryItem } from '@/lib/types';
 import Papa from 'papaparse';
 
-const getBaseUrl = () => {
-  if (typeof window !== 'undefined') {
-    // In the browser, we can use a relative path
-    return '';
-  }
-  // On the server, we need an absolute path
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL;
-  }
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
-  }
-  // A fallback for local development
-  return 'http://localhost:9002';
-};
+// Function to fetch and parse the CSV file. On the server we read the file from
+// the local filesystem (public/equipment.csv). In the browser we fetch the
+// publicly served file at '/equipment.csv'. Dynamic imports are used for
+// server-only modules so the client bundle doesn't include Node APIs.
+const parseCSV = async (): Promise<InventoryItem[]> => {
+  const isServer = typeof window === 'undefined';
+  try {
+    let csvText: string;
+    if (isServer) {
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      const csvPath = path.join(process.cwd(), 'public', 'equipment.csv');
+      csvText = await fs.readFile(csvPath, 'utf-8');
+    } else {
+      const csvUrl = `/equipment.csv`;
+      const res = await fetch(csvUrl);
+      if (!res.ok) throw new Error(`Failed to fetch CSV: ${res.statusText} from ${csvUrl}`);
+      csvText = await res.text();
+    }
 
-// Function to fetch and parse the CSV file
-const parseCSV = (): Promise<InventoryItem[]> => {
-  const csvUrl = `${getBaseUrl()}/equipment.csv`;
-  return new Promise((resolve, reject) => {
-    fetch(csvUrl)
-      .then(response => {
-        if (!response.ok) {
-          return reject(new Error(`Failed to fetch CSV: ${response.statusText} from ${csvUrl}`));
-        }
-        return response.text();
-      })
-      .then(csvText => {
-        Papa.parse(csvText, {
-          header: true,
-          skipEmptyLines: true,
-          complete: (results) => {
-            const items: InventoryItem[] = results.data.map((row: any, index: number) => {
+    return await new Promise((resolve, reject) => {
+      Papa.parse<string>(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          try {
+            const items: InventoryItem[] = (results.data as any).map((row: any, index: number) => {
               const quantity_good = parseInt(row.Quantity_Good, 10) || 0;
               const quantity_fair = parseInt(row.Quantity_Fair, 10) || 0;
               const quantity_poor = parseInt(row.Quantity_Poor, 10) || 0;
@@ -64,14 +58,19 @@ const parseCSV = (): Promise<InventoryItem[]> => {
               };
             });
             resolve(items);
-          },
-          error: (error: any) => {
-            reject(error);
-          },
-        });
-      })
-      .catch(error => reject(error));
-  });
+          } catch (err) {
+            reject(err);
+          }
+        },
+        error: (error: any) => {
+          reject(error);
+        },
+      });
+    });
+  } catch (error) {
+    // Surface an informative error so callers can log or retry as needed
+    throw error;
+  }
 };
 
 let inventoryItems: InventoryItem[] = [];

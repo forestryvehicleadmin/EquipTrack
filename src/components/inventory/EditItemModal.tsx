@@ -111,7 +111,7 @@ export default function EditItemModal({ item, isOpen, onClose, onSave }: EditIte
     form.setValue(fieldName, value);
   };
 
-  const onSubmit = (data: FormValues) => {
+  const onSubmit = async (data: FormValues) => {
     const finalItem: InventoryItem = {
       ...item,
       name: data.name,
@@ -130,7 +130,25 @@ export default function EditItemModal({ item, isOpen, onClose, onSave }: EditIte
         broken: evaluateMathExpression(data.condition_broken),
       },
     };
-    onSave(finalItem);
+
+    // Send update to server to persist to CSV
+    try {
+      const res = await fetch('/api/equipment/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(finalItem),
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(err || 'Failed to update CSV');
+      }
+      toast({ title: 'Saved', description: 'Equipment CSV updated.' });
+      onSave(finalItem);
+      onClose();
+    } catch (error) {
+      console.error('CSV update error', error);
+      toast({ title: 'Error', description: 'Failed to update equipment CSV.' });
+    }
   };
 
   return (

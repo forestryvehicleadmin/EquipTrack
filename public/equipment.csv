@@ -1,5 +1,5 @@
 EquipmentTypeID,Name,Category,Quantity_Good,Quantity_Fair,Quantity_Poor,Quantity_Broken,TotalQuantity,BaseLocation,Quantity_Storage,Quantity_lockers,Quantity_checkout,Notes
-Compass,Compass,Forestry Tools,10,,,,10,3,10,,,
+Compass,Compass,Forestry Tools,10,0,0,0,10,3,10,0,0,
 Garmin Trimble Geo Explorer,Garmin Trimble Geo Explorer,Forestry Tools,0,,0,,0,,0,,,
 Garmin GPS Etrex Legend,Garmin GPS Etrex Legend,Forestry Tools,14,,,,14,2,14,,,
 Garmin GPS Etrex,Garmin GPS Etrex,Forestry Tools,0,3,1,,4,2,4,,,

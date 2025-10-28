@@ -25,30 +25,35 @@ const parseCSV = async (): Promise<InventoryItem[]> => {
         // If fs isn't available (for example, Edge runtime), fall back to
         // fetching the publicly served CSV. Prefer explicit env var if set,
         // otherwise use VERCEL_URL or localhost with the current PORT.
-        // Prefer an explicit NEXT_PUBLIC_APP_URL when present. During build or
-        // when running in serverless/edge environments `fs` may be unavailable.
-        // Avoid hitting the deployment domain (VERCEL_URL) as a first choice
-        // because preview deployments can be protected or unavailable during
-        // static generation — prefer localhost as a safer fallback for build
-        // environments. VERCEL_URL is used last if nothing else is set.
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL
-          ?? `http://localhost:${process.env.PORT ?? process.env.NEXT_DEV_PORT ?? 9003}`
+        // Prefer an explicit NEXT_PUBLIC_APP_URL or VERCEL_URL only. If neither
+        // is set, avoid attempting a network fetch against localhost during
+        // static generation (this commonly causes ECONNREFUSED on build). If
+        // an explicit public URL is provided, try fetching but be tolerant of
+        // non-OK responses (log and fall back to empty data) so SSG doesn't
+        // fail.
+        const explicitUrl = process.env.NEXT_PUBLIC_APP_URL
           ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined);
-        const csvUrl = `${baseUrl.replace(/\/$/, '')}/equipment.csv`;
-        try {
-          const res = await fetch(csvUrl);
-          if (!res.ok) {
-            // If we get a 401/403 (protected preview) or other error, don't
-            // crash the build — log and return an empty CSV so pages can
-            // still render. Callers will see an empty inventory.
-            console.warn(`Failed to fetch CSV (fallback): ${res.status} from ${csvUrl}`);
-            csvText = '';
-          } else {
-            csvText = await res.text();
-          }
-        } catch (fetchErr) {
-          console.warn(`Error fetching CSV (fallback) from ${csvUrl}:`, fetchErr);
+
+        if (!explicitUrl) {
+          // No public URL available — don't attempt an HTTP fetch (avoids
+          // ECONNREFUSED during builds). Return empty CSV content so pages
+          // can render without blocking the build.
+          console.warn('No public URL configured for CSV fallback; skipping HTTP fetch and using empty data. Set NEXT_PUBLIC_APP_URL to enable fetching.');
           csvText = '';
+        } else {
+          const csvUrl = `${explicitUrl.replace(/\/$/, '')}/equipment.csv`;
+          try {
+            const res = await fetch(csvUrl);
+            if (!res.ok) {
+              console.warn(`Failed to fetch CSV (fallback): ${res.status} from ${csvUrl}`);
+              csvText = '';
+            } else {
+              csvText = await res.text();
+            }
+          } catch (fetchErr) {
+            console.warn(`Error fetching CSV (fallback) from ${csvUrl}:`, fetchErr);
+            csvText = '';
+          }
         }
       }
     } else {

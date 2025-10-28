@@ -10,7 +10,9 @@ export async function updateInventoryItem(updatedItem: InventoryItem): Promise<I
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err?.error || 'Failed to update item');
+    // Include detail if available to make debugging easier in dev. Avoid leaking secrets.
+    const detail = err?.detail ? `: ${JSON.stringify(err.detail)}` : '';
+    throw new Error((err?.error || 'Failed to update item') + detail);
   }
   // Return the updated item so UI can optimistically update
   return updatedItem;

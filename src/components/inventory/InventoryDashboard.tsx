@@ -21,6 +21,8 @@ export default function InventoryDashboard({ initialItems }: InventoryDashboardP
   const [showBrokenOnly, setShowBrokenOnly] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [sortField, setSortField] = useState<string>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   const { toast } = useToast();
 
@@ -73,6 +75,10 @@ export default function InventoryDashboard({ initialItems }: InventoryDashboardP
         locations={locations}
         showBrokenOnly={showBrokenOnly}
         setShowBrokenOnly={setShowBrokenOnly}
+        sortField={sortField}
+        setSortField={setSortField}
+        sortOrder={sortOrder}
+        setSortOrder={setSortOrder}
         onCreate={() => setIsCreating(true)}
       />
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
@@ -87,6 +93,8 @@ export default function InventoryDashboard({ initialItems }: InventoryDashboardP
           selectedCategory={selectedCategory}
           selectedLocation={selectedLocation}
           showBrokenOnly={showBrokenOnly}
+          sortField={sortField}
+          sortOrder={sortOrder}
           onEditItem={handleEditItem}
         />
       </div>

@@ -25,14 +25,31 @@ const parseCSV = async (): Promise<InventoryItem[]> => {
         // If fs isn't available (for example, Edge runtime), fall back to
         // fetching the publicly served CSV. Prefer explicit env var if set,
         // otherwise use VERCEL_URL or localhost with the current PORT.
+        // Prefer an explicit NEXT_PUBLIC_APP_URL when present. During build or
+        // when running in serverless/edge environments `fs` may be unavailable.
+        // Avoid hitting the deployment domain (VERCEL_URL) as a first choice
+        // because preview deployments can be protected or unavailable during
+        // static generation — prefer localhost as a safer fallback for build
+        // environments. VERCEL_URL is used last if nothing else is set.
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL
-          ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined)
-          ?? `http://localhost:${process.env.PORT ?? process.env.NEXT_DEV_PORT ?? 9003}`;
-
+          ?? `http://localhost:${process.env.PORT ?? process.env.NEXT_DEV_PORT ?? 9003}`
+          ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined);
         const csvUrl = `${baseUrl.replace(/\/$/, '')}/equipment.csv`;
-        const res = await fetch(csvUrl);
-        if (!res.ok) throw new Error(`Failed to fetch CSV (fallback): ${res.status} from ${csvUrl}`);
-        csvText = await res.text();
+        try {
+          const res = await fetch(csvUrl);
+          if (!res.ok) {
+            // If we get a 401/403 (protected preview) or other error, don't
+            // crash the build — log and return an empty CSV so pages can
+            // still render. Callers will see an empty inventory.
+            console.warn(`Failed to fetch CSV (fallback): ${res.status} from ${csvUrl}`);
+            csvText = '';
+          } else {
+            csvText = await res.text();
+          }
+        } catch (fetchErr) {
+          console.warn(`Error fetching CSV (fallback) from ${csvUrl}:`, fetchErr);
+          csvText = '';
+        }
       }
     } else {
       const csvUrl = `/equipment.csv`;

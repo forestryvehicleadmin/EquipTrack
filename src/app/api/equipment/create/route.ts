@@ -1,15 +1,8 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
-import Papa from 'papaparse';
-let csvStringify: ((records: any, opts?: any) => string) | null = null;
-try {
-  // dynamic require-like import for ESM interop in Next.js route
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  csvStringify = require('csv-stringify/sync').stringify;
-} catch (e) {
-  csvStringify = null;
-}
+import { createInventoryItemInDB } from '@/lib/db';
+import { invalidateInventoryCache } from '@/lib/data';
 
 type InventoryItem = {
   id?: string;
@@ -45,19 +38,18 @@ function joinCsvRow(cols: string[]): string {
 export async function POST(req: Request) {
   try {
     const item: InventoryItem = await req.json();
-    const csvPath = path.join(process.cwd(), 'public', 'equipment.csv');
-    const raw = await fs.readFile(csvPath, 'utf-8');
-    const parsed = Papa.parse(raw, { header: true, skipEmptyLines: true });
-    const header = parsed.meta.fields || [];
-
-    if (parsed.data && Array.isArray(parsed.data)) {
-      // Prevent duplicate by Name using parsed records
-      const exists = parsed.data.some((row: any) => String(row.Name || '').trim() === String(item.name).trim());
-      if (exists) return NextResponse.json({ error: 'Item already exists' }, { status: 409 });
+    const jsonPath = path.join(process.cwd(), 'src', 'data', 'equipment.json');
+    let rows: any[] = [];
+    try {
+      const raw = await fs.readFile(jsonPath, 'utf-8');
+      rows = JSON.parse(raw);
+      if (!Array.isArray(rows)) rows = [];
+    } catch (e) {
+      // If file doesn't exist or parse fails, start with empty array
+      rows = [];
     }
 
-    // Build a map of column values; prefer EquipmentTypeID generation as name when possible
-    const colsMap: Record<string, string | number> = {
+    const newRow = {
       EquipmentTypeID: item.id ?? item.name ?? '',
       Name: item.name ?? '',
       Category: item.category ?? '',
@@ -73,26 +65,24 @@ export async function POST(req: Request) {
       Notes: item.description ?? '',
     };
 
-    // Ensure header order is preserved
-    const rowValues = header.map((col) => colsMap[col] ?? '');
-    let newRowCsv: string;
-    if (csvStringify) {
-      newRowCsv = csvStringify([rowValues], { header: false }).trim();
-    } else {
-      // Fallback: simple manual CSV quoting
-      newRowCsv = rowValues
-        .map((c) => {
-          let s = c === undefined || c === null ? '' : String(c);
-          if (s.includes('"')) s = s.replace(/"/g, '""');
-          if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s}"`;
-          return s;
-        })
-        .join(',');
+    // Try DB first (if configured)
+    try {
+      const created = await createInventoryItemInDB(newRow);
+      if (created) {
+        // Invalidate server cache so next reads reflect DB
+        try { invalidateInventoryCache(); } catch (_) {}
+        return NextResponse.json({ ok: true });
+      }
+    } catch (dbErr) {
+      console.warn('DB create attempt failed, falling back to JSON file', dbErr);
     }
 
-    // Append to file
-    const out = raw.endsWith('\n') || raw.endsWith('\r\n') ? `${raw}${newRowCsv}\n` : `${raw}\n${newRowCsv}\n`;
-    await fs.writeFile(csvPath, out, 'utf-8');
+    // Prevent duplicate by Name in JSON fallback
+    const exists = rows.some((row: any) => String(row.Name || '').trim() === String(item.name).trim());
+    if (exists) return NextResponse.json({ error: 'Item already exists' }, { status: 409 });
+
+    rows.push(newRow);
+    await fs.writeFile(jsonPath, JSON.stringify(rows, null, 2), 'utf-8');
 
     return NextResponse.json({ ok: true });
   } catch (err) {

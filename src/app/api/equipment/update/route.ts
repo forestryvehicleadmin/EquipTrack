@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
+import { updateInventoryItemInDB } from '@/lib/db';
+import { invalidateInventoryCache } from '@/lib/data';
 
 type InventoryItem = {
   name: string;
@@ -56,61 +58,58 @@ function joinCsvRow(cols: string[]): string {
 export async function POST(req: Request) {
   try {
     const item: InventoryItem = await req.json();
-    const csvPath = path.join(process.cwd(), 'public', 'equipment.csv');
-    const raw = await fs.readFile(csvPath, 'utf-8');
-    const lines = raw.split(/\r?\n/);
-    if (lines.length === 0) return NextResponse.json({ error: 'Empty CSV' }, { status: 400 });
+    const jsonPath = path.join(process.cwd(), 'src', 'data', 'equipment.json');
+    let rows: any[] = [];
+    try {
+      const raw = await fs.readFile(jsonPath, 'utf-8');
+      rows = JSON.parse(raw);
+      if (!Array.isArray(rows)) rows = [];
+    } catch (e) {
+      rows = [];
+    }
 
-    const header = splitCsvRow(lines[0]);
-    // map header names to indices for common columns in this CSV
-    const idx = {
-      EquipmentTypeID: header.indexOf('EquipmentTypeID'),
-      Name: header.indexOf('Name'),
-      Quantity_Good: header.indexOf('Quantity_Good'),
-      Quantity_Fair: header.indexOf('Quantity_Fair'),
-      Quantity_Poor: header.indexOf('Quantity_Poor'),
-      Quantity_Broken: header.indexOf('Quantity_Broken'),
-      TotalQuantity: header.indexOf('TotalQuantity'),
-      Quantity_Storage: header.indexOf('Quantity_Storage'),
-      Quantity_lockers: header.indexOf('Quantity_lockers'),
-      Quantity_checkout: header.indexOf('Quantity_checkout'),
-    };
+    // Try updating DB first (if configured)
+    try {
+      const updates = {
+        quantity_good: item.condition.good || 0,
+        quantity_fair: item.condition.fair || 0,
+        quantity_poor: item.condition.poor || 0,
+        quantity_broken: item.condition.broken || 0,
+        totalquantity: item.quantity.total ?? 0,
+        quantity_storage: item.quantity.storage ?? 0,
+        quantity_lockers: item.quantity.lockers ?? 0,
+        quantity_checkout: item.quantity.checkedOut ?? 0,
+      };
+      const updated = await updateInventoryItemInDB(item.name, updates);
+      if (updated) {
+        try { invalidateInventoryCache(); } catch (_) {}
+        return NextResponse.json({ ok: true });
+      }
+    } catch (dbErr) {
+      console.warn('DB update attempt failed, falling back to JSON file', dbErr);
+    }
 
-    // Find row by exact Name match
     let found = false;
-    const updatedLines = [lines[0]];
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i];
-      if (line.trim() === '') {
-        updatedLines.push(line);
-        continue;
-      }
-      const cols = splitCsvRow(line);
-      const name = (idx.Name >= 0 && cols[idx.Name] !== undefined) ? cols[idx.Name] : '';
-      if (name === item.name) {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (String(row.Name || '') === String(item.name)) {
         found = true;
-        // update numeric fields if indices exist
-        if (idx.Quantity_Good >= 0) cols[idx.Quantity_Good] = String(item.condition.good || 0);
-        if (idx.Quantity_Fair >= 0) cols[idx.Quantity_Fair] = String(item.condition.fair || 0);
-        if (idx.Quantity_Poor >= 0) cols[idx.Quantity_Poor] = String(item.condition.poor || 0);
-        if (idx.Quantity_Broken >= 0) cols[idx.Quantity_Broken] = String(item.condition.broken || 0);
-        if (idx.TotalQuantity >= 0) cols[idx.TotalQuantity] = String(item.quantity.total ?? 0);
-        if (idx.Quantity_Storage >= 0) cols[idx.Quantity_Storage] = String(item.quantity.storage ?? 0);
-        if (idx.Quantity_lockers >= 0) cols[idx.Quantity_lockers] = String(item.quantity.lockers ?? 0);
-        if (idx.Quantity_checkout >= 0) cols[idx.Quantity_checkout] = String(item.quantity.checkedOut ?? 0);
-
-        updatedLines.push(joinCsvRow(cols));
-      } else {
-        updatedLines.push(line);
+        row.Quantity_Good = item.condition.good || 0;
+        row.Quantity_Fair = item.condition.fair || 0;
+        row.Quantity_Poor = item.condition.poor || 0;
+        row.Quantity_Broken = item.condition.broken || 0;
+        row.TotalQuantity = item.quantity.total ?? 0;
+        row.Quantity_Storage = item.quantity.storage ?? 0;
+        row.Quantity_lockers = item.quantity.lockers ?? 0;
+        row.Quantity_checkout = item.quantity.checkedOut ?? 0;
+        rows[i] = row;
+        break;
       }
     }
 
-    if (!found) {
-      // Optionally append a new row if item not found. Here we return error.
-      return NextResponse.json({ error: 'Item not found in CSV' }, { status: 404 });
-    }
+    if (!found) return NextResponse.json({ error: 'Item not found' }, { status: 404 });
 
-    await fs.writeFile(csvPath, updatedLines.join('\n'), 'utf-8');
+    await fs.writeFile(jsonPath, JSON.stringify(rows, null, 2), 'utf-8');
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error('CSV update failed', err);

@@ -1,6 +1,7 @@
 
 import type { InventoryItem } from '@/lib/types';
 import Papa from 'papaparse';
+import { getInventoryItemsFromDB } from './db';
 
 // Function to fetch and parse the CSV file. On the server we read the file from
 // the local filesystem (public/equipment.csv). In the browser we fetch the
@@ -9,9 +10,17 @@ import Papa from 'papaparse';
 const parseCSV = async (): Promise<InventoryItem[]> => {
   const isServer = typeof window === 'undefined';
   try {
-    // If we're on the server prefer a statically generated JSON file (for
-    // build-time bundling). A prebuild script writes `src/data/equipment.json`.
+    // If we're on the server prefer Supabase DB (if configured), then a
+    // statically generated JSON file (for build-time bundling). A prebuild
+    // script writes `src/data/equipment.json`.
     if (isServer) {
+      try {
+        const dbItems = await getInventoryItemsFromDB();
+        if (Array.isArray(dbItems)) return dbItems;
+      } catch (e) {
+        // ignore and fall back to JSON/file fetches
+      }
+      
       try {
         // If the prebuild generated JSON exists, read it from disk at
         // runtime instead of using a static require so the bundler doesn't
@@ -187,6 +196,12 @@ const initializeData = async () => {
 
 // We call this to ensure data is loaded before it is used.
 initializeData();
+
+// Allow external callers (API routes) to invalidate the in-memory cache when
+// the underlying data is updated (for example, after a DB write).
+export function invalidateInventoryCache() {
+  dataInitialized = false;
+}
 
 // Simulate network latency
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));

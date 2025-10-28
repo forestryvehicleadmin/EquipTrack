@@ -1,7 +1,7 @@
 import InventoryDashboard from '@/components/inventory/InventoryDashboard';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { getInventoryItems } from '@/lib/data';
+import { getInventoryItems } from '@/lib/data.server';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 
 export default async function Home() {

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
 import { updateInventoryItemInDB } from '@/lib/db';
-import { invalidateInventoryCache } from '@/lib/data';
+import { invalidateInventoryCache } from '@/lib/data.server';
 
 type InventoryItem = {
   name: string;

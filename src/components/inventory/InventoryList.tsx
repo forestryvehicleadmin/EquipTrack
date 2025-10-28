@@ -24,7 +24,8 @@ export default function InventoryList({
 }: InventoryListProps) {
   const filteredAndGroupedData = useMemo(() => {
     const filtered = items.filter(item => {
-      const nameMatch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const name = item.name ?? '';
+      const nameMatch = name.toLowerCase().includes((searchTerm ?? '').toLowerCase());
       const categoryMatch = selectedCategory === 'All' || item.category === selectedCategory;
       const brokenMatch = !showBrokenOnly || item.condition.broken > 0;
       const locationMatch =

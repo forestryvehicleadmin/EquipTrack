@@ -9,6 +9,62 @@ import Papa from 'papaparse';
 const parseCSV = async (): Promise<InventoryItem[]> => {
   const isServer = typeof window === 'undefined';
   try {
+    // If we're on the server prefer a statically generated JSON file (for
+    // build-time bundling). A prebuild script writes `src/data/equipment.json`.
+    if (isServer) {
+      try {
+        // If the prebuild generated JSON exists, read it from disk at
+        // runtime instead of using a static require so the bundler doesn't
+        // try to resolve the module during client/bundling steps.
+        const fs = await import('fs');
+        const pathMod = await import('path');
+        const jsonPath = pathMod.join(process.cwd(), 'src', 'data', 'equipment.json');
+        if (fs.existsSync && fs.existsSync(jsonPath)) {
+          const content = fs.readFileSync
+            ? fs.readFileSync(jsonPath, 'utf8')
+            : await fs.promises.readFile(jsonPath, 'utf8');
+          const rows = JSON.parse(content) as any[] | undefined;
+          if (Array.isArray(rows)) {
+            // Map JSON rows to InventoryItem shape (same as CSV mapping)
+            const items: InventoryItem[] = rows.map((row: any, index: number) => {
+            const quantity_good = parseInt(row.Quantity_Good, 10) || 0;
+            const quantity_fair = parseInt(row.Quantity_Fair, 10) || 0;
+            const quantity_poor = parseInt(row.Quantity_Poor, 10) || 0;
+            const quantity_broken = parseInt(row.Quantity_Broken, 10) || 0;
+
+            const quantity_storage = parseInt(row.Quantity_Storage, 10) || 0;
+            const quantity_lockers = parseInt(row.Quantity_lockers, 10) || 0;
+            const quantity_checkout = parseInt(row.Quantity_checkout, 10) || 0;
+
+            return {
+              id: row.EquipmentTypeID || `${index}`,
+              name: row.Name,
+              description: row.Notes || '',
+              category: row.Category,
+              quantity: {
+                total: quantity_good + quantity_fair + quantity_poor + quantity_broken,
+                storage: quantity_storage,
+                lockers: quantity_lockers,
+                checkedOut: quantity_checkout,
+              },
+              condition: {
+                good: quantity_good,
+                fair: quantity_fair,
+                poor: quantity_poor,
+                broken: quantity_broken,
+              },
+            };
+          });
+          return items;
+        }
+      }
+      } catch (e) {
+        // If importing the JSON fails, continue to the existing filesystem
+        // fallback (e.g., when running in environments without the prebuild
+        // step).
+      }
+    }
+
     let csvText: string;
     if (isServer) {
       // Attempt to read from the filesystem (Node runtimes). Some server

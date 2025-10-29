@@ -6,7 +6,7 @@ import FilterControls from './FilterControls';
 import InventoryList from './InventoryList';
 import EditItemModal from './EditItemModal';
 import CreateItemModal from './CreateItemModal';
-import { updateInventoryItem } from '@/lib/data';
+import { updateInventoryItem } from '@/lib/data.client';
 import { useToast } from "@/hooks/use-toast";
 
 type InventoryDashboardProps = {
@@ -21,6 +21,8 @@ export default function InventoryDashboard({ initialItems }: InventoryDashboardP
   const [showBrokenOnly, setShowBrokenOnly] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [sortField, setSortField] = useState<string>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   const { toast } = useToast();
 
@@ -28,6 +30,8 @@ export default function InventoryDashboard({ initialItems }: InventoryDashboardP
     ['All', ...Array.from(new Set(initialItems.map(item => item.category).filter(Boolean)))]
   , [initialItems]);
   const locations = ['All', 'In Storage', 'In Lockers', 'Checked Out'];
+
+  const showNoDataBanner = initialItems.length === 0;
 
   const handleSave = useCallback(async (updatedFormData: InventoryItem) => {
     try {
@@ -71,15 +75,26 @@ export default function InventoryDashboard({ initialItems }: InventoryDashboardP
         locations={locations}
         showBrokenOnly={showBrokenOnly}
         setShowBrokenOnly={setShowBrokenOnly}
+        sortField={sortField}
+        setSortField={setSortField}
+        sortOrder={sortOrder}
+        setSortOrder={setSortOrder}
         onCreate={() => setIsCreating(true)}
       />
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
+        {showNoDataBanner && (
+          <div className="mb-4 p-3 rounded border bg-yellow-50 text-yellow-800">
+            No inventory items found. Make sure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or anon key) are configured in your environment and that the `equipment` table is populated.
+          </div>
+        )}
         <InventoryList
           items={items}
           searchTerm={searchTerm}
           selectedCategory={selectedCategory}
           selectedLocation={selectedLocation}
           showBrokenOnly={showBrokenOnly}
+          sortField={sortField}
+          sortOrder={sortOrder}
           onEditItem={handleEditItem}
         />
       </div>

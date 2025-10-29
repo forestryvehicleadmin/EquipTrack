@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
 import { updateInventoryItemInDB } from '@/lib/db';
-import { invalidateInventoryCache } from '@/lib/data';
+import { invalidateInventoryCache } from '@/lib/data.server';
 
 type InventoryItem = {
   name: string;
@@ -58,61 +56,31 @@ function joinCsvRow(cols: string[]): string {
 export async function POST(req: Request) {
   try {
     const item: InventoryItem = await req.json();
-    const jsonPath = path.join(process.cwd(), 'src', 'data', 'equipment.json');
-    let rows: any[] = [];
-    try {
-      const raw = await fs.readFile(jsonPath, 'utf-8');
-      rows = JSON.parse(raw);
-      if (!Array.isArray(rows)) rows = [];
-    } catch (e) {
-      rows = [];
+
+    // Build DB update payload
+    const updates = {
+      quantity_good: item.condition.good || 0,
+      quantity_fair: item.condition.fair || 0,
+      quantity_poor: item.condition.poor || 0,
+      quantity_broken: item.condition.broken || 0,
+      totalquantity: item.quantity.total ?? 0,
+      quantity_storage: item.quantity.storage ?? 0,
+      quantity_lockers: item.quantity.lockers ?? 0,
+      quantity_checkout: item.quantity.checkedOut ?? 0,
+    };
+
+    const result = await updateInventoryItemInDB(item.name, updates);
+    if (!result || !result.ok) {
+      // Forward helpful details when available for debugging (don't expose secrets).
+      const detail = result?.error ?? 'unknown_error';
+      console.warn('Update failed for', item.name, detail);
+      return NextResponse.json({ error: 'Database update failed (check SUPABASE config and table).', detail }, { status: 500 });
     }
 
-    // Try updating DB first (if configured)
-    try {
-      const updates = {
-        quantity_good: item.condition.good || 0,
-        quantity_fair: item.condition.fair || 0,
-        quantity_poor: item.condition.poor || 0,
-        quantity_broken: item.condition.broken || 0,
-        totalquantity: item.quantity.total ?? 0,
-        quantity_storage: item.quantity.storage ?? 0,
-        quantity_lockers: item.quantity.lockers ?? 0,
-        quantity_checkout: item.quantity.checkedOut ?? 0,
-      };
-      const updated = await updateInventoryItemInDB(item.name, updates);
-      if (updated) {
-        try { invalidateInventoryCache(); } catch (_) {}
-        return NextResponse.json({ ok: true });
-      }
-    } catch (dbErr) {
-      console.warn('DB update attempt failed, falling back to JSON file', dbErr);
-    }
-
-    let found = false;
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      if (String(row.Name || '') === String(item.name)) {
-        found = true;
-        row.Quantity_Good = item.condition.good || 0;
-        row.Quantity_Fair = item.condition.fair || 0;
-        row.Quantity_Poor = item.condition.poor || 0;
-        row.Quantity_Broken = item.condition.broken || 0;
-        row.TotalQuantity = item.quantity.total ?? 0;
-        row.Quantity_Storage = item.quantity.storage ?? 0;
-        row.Quantity_lockers = item.quantity.lockers ?? 0;
-        row.Quantity_checkout = item.quantity.checkedOut ?? 0;
-        rows[i] = row;
-        break;
-      }
-    }
-
-    if (!found) return NextResponse.json({ error: 'Item not found' }, { status: 404 });
-
-    await fs.writeFile(jsonPath, JSON.stringify(rows, null, 2), 'utf-8');
+    try { invalidateInventoryCache(); } catch (_) {}
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error('CSV update failed', err);
-    return NextResponse.json({ error: 'Server error updating CSV' }, { status: 500 });
+    return NextResponse.json({ error: 'Server error updating item' }, { status: 500 });
   }
 }

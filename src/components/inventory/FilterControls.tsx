@@ -1,5 +1,6 @@
-'use client';
+"use client";
 
+import { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -24,6 +25,15 @@ type FilterControlsProps = {
   showBrokenOnly: boolean;
   setShowBrokenOnly: (value: boolean) => void;
   onCreate?: () => void;
+  // Optional multi-field filter props
+  filterField?: string;
+  setFilterField?: (value: string) => void;
+  // (mode/value removed)
+  // Optional sorting props
+  sortField?: string;
+  setSortField?: (value: string) => void;
+  sortOrder?: 'asc' | 'desc';
+  setSortOrder?: (value: 'asc' | 'desc') => void;
 };
 
 export default function FilterControls({
@@ -38,7 +48,37 @@ export default function FilterControls({
   showBrokenOnly,
   setShowBrokenOnly,
   onCreate,
+  filterField,
+  setFilterField,
+  sortField,
+  setSortField,
+  sortOrder,
+  setSortOrder,
 }: FilterControlsProps) {
+  // local state to keep component controlled even if parent doesn't provide setters
+  const [localFilterField, setLocalFilterField] = useState<string>(filterField ?? 'any');
+  // sorting local state
+  const [localSortField, setLocalSortField] = useState<string>(sortField ?? 'name');
+  const [localSortOrder, setLocalSortOrder] = useState<'asc' | 'desc'>(sortOrder ?? 'asc');
+
+  useEffect(() => setLocalFilterField(filterField && filterField !== '' ? filterField : 'any'), [filterField]);
+  useEffect(() => setLocalSortField(sortField ?? 'name'), [sortField]);
+  useEffect(() => setLocalSortOrder(sortOrder ?? 'asc'), [sortOrder]);
+
+  const handleFieldChange = (val: string) => {
+    setLocalFilterField(val);
+    setFilterField?.(val);
+  };
+
+  const handleSortFieldChange = (val: string) => {
+    setLocalSortField(val);
+    setSortField?.(val);
+  };
+
+  const handleSortOrderChange = (val: 'asc' | 'desc') => {
+    setLocalSortOrder(val);
+    setSortOrder?.(val);
+  };
   return (
     <div className="flex flex-col md:flex-row items-center gap-4 p-4 bg-card/80 backdrop-blur-sm border-b">
       <div className="flex items-center gap-2 w-full md:w-auto md:flex-1">
@@ -79,6 +119,33 @@ export default function FilterControls({
             ))}
           </SelectContent>
         </Select>
+  {/* Multi-field filter: field selector, mode selector, adaptive input, and sorting */}
+        
+        
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <Select value={localSortField} onValueChange={handleSortFieldChange}>
+            <SelectTrigger className="w-full md:w-[140px]">
+              <SelectValue placeholder="Sort Field" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Name</SelectItem>
+              <SelectItem value="category">Category</SelectItem>
+              <SelectItem value="location">Location</SelectItem>
+              <SelectItem value="quantity">Quantity</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <Select value={localSortOrder} onValueChange={(v: string) => handleSortOrderChange(v as 'asc' | 'desc')}>
+            <SelectTrigger className="w-full md:w-[120px]">
+              <SelectValue placeholder="Order" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="asc">A → Z</SelectItem>
+              <SelectItem value="desc">Z → A</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       <div className="flex items-center space-x-2 self-start md:self-center">
         <Checkbox

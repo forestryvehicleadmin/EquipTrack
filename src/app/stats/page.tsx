@@ -1,4 +1,4 @@
-import { getInventoryItems } from '@/lib/data';
+import { getInventoryItems } from '@/lib/data.server';
 import StatsDashboard from '@/components/inventory/StatsDashboard';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 

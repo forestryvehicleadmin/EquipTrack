@@ -20,6 +20,7 @@ import { useEffect, useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Sparkles } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
+import { updateInventoryItem } from '@/lib/data.client';
 
 type EditItemModalProps = {
   item: InventoryItem;
@@ -131,23 +132,15 @@ export default function EditItemModal({ item, isOpen, onClose, onSave }: EditIte
       },
     };
 
-    // Send update to server to persist to CSV
+    // Send update to server (Supabase) via client helper
     try {
-      const res = await fetch('/api/equipment/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(finalItem),
-      });
-      if (!res.ok) {
-        const err = await res.text();
-        throw new Error(err || 'Failed to update CSV');
-      }
-      toast({ title: 'Saved', description: 'Equipment CSV updated.' });
+      await updateInventoryItem(finalItem);
+      toast({ title: 'Saved', description: 'Equipment updated.' });
       onSave(finalItem);
       onClose();
     } catch (error) {
-      console.error('CSV update error', error);
-      toast({ title: 'Error', description: 'Failed to update equipment CSV.' });
+      console.error('Update error', error);
+      toast({ title: 'Error', description: (error as Error)?.message || 'Failed to update equipment.' });
     }
   };
 

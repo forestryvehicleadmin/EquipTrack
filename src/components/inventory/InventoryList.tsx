@@ -11,6 +11,8 @@ type InventoryListProps = {
   selectedCategory: string;
   selectedLocation: string;
   showBrokenOnly: boolean;
+  sortField?: string;
+  sortOrder?: 'asc' | 'desc';
   onEditItem: (item: InventoryItem) => void;
 };
 
@@ -20,6 +22,8 @@ export default function InventoryList({
   selectedCategory,
   selectedLocation,
   showBrokenOnly,
+  sortField = 'name',
+  sortOrder = 'asc',
   onEditItem,
 }: InventoryListProps) {
   const filteredAndGroupedData = useMemo(() => {
@@ -45,7 +49,40 @@ export default function InventoryList({
       acc[category].push(item);
       return acc;
     }, {} as Record<string, InventoryItem[]>);
-  }, [items, searchTerm, selectedCategory, showBrokenOnly, selectedLocation]);
+
+    // After grouping, sort each category's items according to sortField/sortOrder
+  }, [items, searchTerm, selectedCategory, showBrokenOnly, selectedLocation, sortField, sortOrder]);
+
+  // sort the arrays inside the grouped data before rendering
+  const groupedDataSorted = useMemo(() => {
+    const clone: Record<string, InventoryItem[]> = {};
+    for (const key of Object.keys(filteredAndGroupedData)) {
+      const arr = [...filteredAndGroupedData[key]];
+      arr.sort((a, b) => {
+        let av: any = (a as any)[sortField as string];
+        let bv: any = (b as any)[sortField as string];
+        if (sortField === 'quantity') {
+          av = a.quantity?.total ?? 0;
+          bv = b.quantity?.total ?? 0;
+        } else if (typeof av === 'undefined' || typeof bv === 'undefined') {
+          // fallback to name if field not present
+          av = a.name ?? '';
+          bv = b.name ?? '';
+        }
+
+        let cmp = 0;
+        if (typeof av === 'string' && typeof bv === 'string') {
+          cmp = av.localeCompare(bv);
+        } else {
+          cmp = (av ?? 0) - (bv ?? 0);
+        }
+
+        return sortOrder === 'asc' ? cmp : -cmp;
+      });
+      clone[key] = arr;
+    }
+    return clone;
+  }, [filteredAndGroupedData, sortField, sortOrder]);
 
   const sortedCategories = useMemo(() => {
     return Object.keys(filteredAndGroupedData).sort((a, b) => {
@@ -73,7 +110,7 @@ export default function InventoryList({
             {category}
           </h2>
           <div className="grid gap-4">
-            {filteredAndGroupedData[category].map(item => (
+            {groupedDataSorted[category].map(item => (
               <InventoryCard key={item.id} item={item} onEdit={onEditItem} />
             ))}
           </div>

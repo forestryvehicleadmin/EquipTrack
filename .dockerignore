@@ -1,0 +1,12 @@
+Dockerfile
+.dockerignore
+node_modules
+npm-debug.log
+README.md
+.next
+.git
+.gitignore
+
+# You can uncomment the following line if you have a .env file
+# and you don't want to include it in the image
+# .env

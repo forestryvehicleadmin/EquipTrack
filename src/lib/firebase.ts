@@ -50,21 +50,15 @@ export async function getFirebaseDb(): Promise<Firestore | null> {
 }
 
 async function getServiceAccount() {
-  const secretName = process.env.FIREBASE_SECRET_NAME;
+  const secretValue = process.env.FIREBASE_SECRET_NAME;
   // For Cloud Run or similar environments: fetch from Secret Manager
-  if (secretName) {
-    console.log('Fetching Firebase service account from Secret Manager...');
+  if (secretValue) {
+    console.log('Parsing Firebase service account from environment variable...');
     try {
-      const client = new SecretManagerServiceClient();
-      const [version] = await client.accessSecretVersion({ name: secretName });
-      const payload = version.payload?.data?.toString();
-      if (payload) {
-        return JSON.parse(payload);
-      }
-      console.warn('Secret payload is empty.');
-      return null;
+      // In Cloud Run, when a secret is mounted as an env var, the value is the secret's content.
+      return JSON.parse(secretValue);
     } catch (error) {
-      console.error('Failed to fetch secret from Secret Manager:', error);
+      console.error('Failed to parse Firebase service account from environment variable:', error);
       return null;
     }
   }

@@ -9,7 +9,7 @@ steps:
       - '${_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME}:${COMMIT_SHA}'
       # Pass the secret as a build-time argument to the Dockerfile
       - '--build-arg'
-      - 'FIREBASE_SECRET_NAME'
+      - 'FIREBASE_SECRET_NAME=$FIREBASE_SECRET_NAME'
       - '.'
 
   # 2. Push the container image to Artifact Registry

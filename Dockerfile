@@ -15,8 +15,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Make the Firebase secret available as an environment variable during the build
+# The 'ENV' instruction doesn't expand variables, so we use a shell command.
 ARG FIREBASE_SECRET_NAME
-ENV FIREBASE_SECRET_NAME=${FIREBASE_SECRET_NAME}
 
 # This will do the trick, use the corresponding env file for building.
 # You can customize this for different environments (e.g., .env.production).
@@ -24,7 +24,7 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Generate the standalone output.
-RUN npm run build
+RUN export FIREBASE_SECRET_NAME="$FIREBASE_SECRET_NAME" && npm run build
 
 # ---- Runner ----
 # 3. Production image, copy all the files and run next

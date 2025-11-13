@@ -4,7 +4,7 @@ import { getFirebaseDb } from './firebase';
 const COLLECTION_NAME = 'equipment';
 
 export async function getInventoryItemsFromDB(): Promise<InventoryItem[]> {
-  const db = getFirebaseDb();
+  const db = await getFirebaseDb();
   if (!db) {
     console.warn('Firestore not configured. Returning empty inventory.');
     return [];
@@ -35,7 +35,7 @@ export async function getInventoryItemsFromDB(): Promise<InventoryItem[]> {
 }
 
 export async function createInventoryItemInDB(row: any): Promise<boolean> {
-  const db = getFirebaseDb();
+  const db = await getFirebaseDb();
   if (!db) return false;
   try {
     await db.collection(COLLECTION_NAME).add(row);
@@ -47,7 +47,7 @@ export async function createInventoryItemInDB(row: any): Promise<boolean> {
 }
 
 export async function updateInventoryItemInDB(id: string, updates: Partial<InventoryItem>): Promise<{ ok: boolean; error?: any }> {
-  const db = getFirebaseDb();
+  const db = await getFirebaseDb();
   if (!db) return { ok: false, error: { message: 'no_firestore_client' } };
   if (!id) {
     return { ok: false, error: { message: 'no_id_provided' } };

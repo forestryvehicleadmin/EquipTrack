@@ -37,11 +37,11 @@ steps:
 images:
   - '${_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/${_SERVICE_NAME}:${COMMIT_SHA}'
 
-# Make the secret available to the build steps
-secrets:
-  - secretManager:
-      secretName: 'firebase-service-account'
-      env: 'FIREBASE_SECRET_NAME'
-
 options:
   logging: CLOUD_LOGGING_ONLY
+
+# Make the secret available to the build steps
+availableSecrets:
+  secretManager:
+  - versionName: projects/${PROJECT_ID}/secrets/firebase-service-account/versions/latest
+    env: 'FIREBASE_SECRET_NAME'

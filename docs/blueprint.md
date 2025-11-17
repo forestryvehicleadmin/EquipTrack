@@ -16,4 +16,4 @@
 - Font: Use 'Inter' for both body and headline text; sans-serif with a modern, objective, neutral look; suitable for user interfaces.
 - Use simple, clear icons from a consistent set (e.g., Material Design Icons) to represent item categories and actions.
 - Cards should be well-spaced, with clear visual separation between items and categories, and sections in the modals.
-- Use subtle transitions for modal appearances and data updates to provide visual feedback without being distracting.
+- Use subtle transitions for modal appearances and data updates to provide visual feedback without being distracting. 

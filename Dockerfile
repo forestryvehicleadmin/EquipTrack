@@ -23,8 +23,14 @@ ARG FIREBASE_SECRET_NAME
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Generate the standalone output.
-RUN export FIREBASE_SECRET_NAME="$FIREBASE_SECRET_NAME" && npm run build
+# If a build-arg with the Firebase service account JSON is provided, write
+# it to a temporary file and set `FIREBASE_SERVICE_ACCOUNT_PATH` so the
+# app can read it during the build. This keeps the secret out of build logs
+# while making the JSON available to Next.js when it generates pages.
+RUN if [ -n "$FIREBASE_SECRET_NAME" ]; then \
+			printf '%s' "$FIREBASE_SECRET_NAME" > /tmp/firebase-service-account.json && \
+			export FIREBASE_SERVICE_ACCOUNT_PATH=/tmp/firebase-service-account.json; \
+		fi && npm run build
 
 # ---- Runner ----
 # 3. Production image, copy all the files and run next

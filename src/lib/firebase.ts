@@ -53,6 +53,15 @@ async function getServiceAccount() {
   const secretValue = process.env.FIREBASE_SECRET_NAME;
   // For Cloud Run or similar environments: fetch from Secret Manager
   if (secretValue) {
+    // Guard against unresolved placeholders or substitution tokens like
+    // "$FIREBASE_..." which indicate the secret was not injected.
+    const trimmed = secretValue.trim();
+    if (trimmed.startsWith('$') || trimmed.includes('$FIREBASE')) {
+      console.error('FIREBASE_SECRET_NAME appears to be an unresolved placeholder. Secret not available.');
+      console.error('Ensure Secret Manager is accessible to the build/runtime and that the env var contains the JSON payload.');
+      return null;
+    }
+
     console.log('Parsing Firebase service account from environment variable...');
     try {
       // In Cloud Run, when a secret is mounted as an env var, the value is the secret's content.

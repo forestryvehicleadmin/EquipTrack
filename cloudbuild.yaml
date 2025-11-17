@@ -5,8 +5,8 @@ steps:
     secretEnv: ['FIREBASE_SECRET_NAME']
     args:
       - -c
-      - 'echo -n "$FIREBASE_SECRET_NAME" | wc -c'
-      
+      - 'echo -n "$$FIREBASE_SECRET_NAME" | wc -c'
+
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Build'
     secretEnv: ['FIREBASE_SECRET_NAME']

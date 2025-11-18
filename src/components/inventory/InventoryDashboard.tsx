@@ -2,12 +2,13 @@
 
 import type { InventoryItem } from '@/lib/types';
 import { useState, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import FilterControls from './FilterControls';
 import InventoryList from './InventoryList';
 import EditItemModal from './EditItemModal';
 import CreateItemModal from './CreateItemModal';
 import { updateInventoryItem } from '@/lib/data.client';
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from '@/hooks/use-toast';
 
 type InventoryDashboardProps = {
   initialItems: InventoryItem[];
@@ -25,6 +26,7 @@ export default function InventoryDashboard({ initialItems }: InventoryDashboardP
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   const { toast } = useToast();
+  const router = useRouter();
 
   const categories = useMemo(() => 
     ['All', ...Array.from(new Set(initialItems.map(item => item.category).filter(Boolean)))]
@@ -36,9 +38,6 @@ export default function InventoryDashboard({ initialItems }: InventoryDashboardP
   const handleSave = useCallback(async (updatedFormData: InventoryItem) => {
     try {
       const savedItem = await updateInventoryItem(updatedFormData);
-      setItems(prevItems =>
-        prevItems.map(item => (item.id === savedItem.id ? savedItem : item))
-      );
       toast({
         title: "Success",
         description: `${savedItem.name} has been updated.`,
@@ -50,9 +49,10 @@ export default function InventoryDashboard({ initialItems }: InventoryDashboardP
         description: `Failed to update item.`,
       });
     } finally {
+      router.refresh();
       setEditingItem(null);
     }
-  }, [toast]);
+  }, [toast, router]);
 
   const handleEditItem = useCallback((item: InventoryItem) => {
     setEditingItem(item);
@@ -122,11 +122,11 @@ export default function InventoryDashboard({ initialItems }: InventoryDashboardP
                 const err = await res.json();
                 throw new Error(err?.error || 'Create failed');
               }
-              setItems((prev) => [item, ...prev]);
               toast({ title: 'Created', description: `${item.name} added.` });
             } catch (e: any) {
               toast({ title: 'Error', description: e?.message || 'Failed to create item', variant: 'destructive' });
             } finally {
+              router.refresh();
               setIsCreating(false);
             }
           }}

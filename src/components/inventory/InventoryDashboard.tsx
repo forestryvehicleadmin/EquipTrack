@@ -1,7 +1,7 @@
 'use client';
 
 import type { InventoryItem } from '@/lib/types';
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import FilterControls from './FilterControls';
 import InventoryList from './InventoryList';
@@ -25,6 +25,7 @@ export default function InventoryDashboard({ initialItems }: InventoryDashboardP
   const [sortField, setSortField] = useState<string>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
+  const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -49,10 +50,12 @@ export default function InventoryDashboard({ initialItems }: InventoryDashboardP
         description: `Failed to update item.`,
       });
     } finally {
-      router.refresh();
+      startTransition(() => {
+        router.refresh();
+      });
       setEditingItem(null);
     }
-  }, [toast, router]);
+  }, [toast, router, startTransition]);
 
   const handleEditItem = useCallback((item: InventoryItem) => {
     setEditingItem(item);
@@ -111,6 +114,7 @@ export default function InventoryDashboard({ initialItems }: InventoryDashboardP
         sortOrder={sortOrder}
         setSortOrder={setSortOrder}
         onCreate={() => setIsCreating(true)}
+        isLoading={isPending}
         onDownloadCsv={handleDownloadCsv}
       />
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
@@ -158,7 +162,9 @@ export default function InventoryDashboard({ initialItems }: InventoryDashboardP
             } catch (e: any) {
               toast({ title: 'Error', description: e?.message || 'Failed to create item', variant: 'destructive' });
             } finally {
-              router.refresh();
+              startTransition(() => {
+                router.refresh();
+              });
               setIsCreating(false);
             }
           }}

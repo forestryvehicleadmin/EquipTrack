@@ -12,6 +12,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Download } from 'lucide-react';
 
 type FilterControlsProps = {
   searchTerm: string;
@@ -25,6 +26,7 @@ type FilterControlsProps = {
   showBrokenOnly: boolean;
   setShowBrokenOnly: (value: boolean) => void;
   onCreate?: () => void;
+  onDownloadCsv?: () => void;
   // Optional multi-field filter props
   filterField?: string;
   setFilterField?: (value: string) => void;
@@ -48,6 +50,7 @@ export default function FilterControls({
   showBrokenOnly,
   setShowBrokenOnly,
   onCreate,
+  onDownloadCsv,
   filterField,
   setFilterField,
   sortField,
@@ -84,6 +87,9 @@ export default function FilterControls({
       <div className="flex items-center gap-2 w-full md:w-auto md:flex-1">
         {onCreate && (
           <Button variant="default" size="sm" onClick={onCreate}>New Item</Button>
+        )}
+        {onDownloadCsv && (
+          <Button variant="outline" size="sm" onClick={onDownloadCsv}><Download /> CSV</Button>
         )}
       </div>
       <div className="w-full md:w-auto md:flex-1">

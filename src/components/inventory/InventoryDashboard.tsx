@@ -9,6 +9,7 @@ import EditItemModal from './EditItemModal';
 import CreateItemModal from './CreateItemModal';
 import { updateInventoryItem } from '@/lib/data.client';
 import { useToast } from '@/hooks/use-toast';
+import Papa from 'papaparse';
 
 type InventoryDashboardProps = {
   initialItems: InventoryItem[];
@@ -57,6 +58,37 @@ export default function InventoryDashboard({ initialItems }: InventoryDashboardP
     setEditingItem(item);
   }, []);
 
+  const handleDownloadCsv = useCallback(() => {
+    // Flatten the data for CSV export
+    const dataForCsv = initialItems.map(item => ({
+      id: item.id,
+      name: item.name,
+      category: item.category,
+      description: item.description,
+      total_quantity: item.quantity.total,
+      quantity_in_storage: item.quantity.storage,
+      quantity_in_lockers: item.quantity.lockers,
+      quantity_checked_out: item.quantity.checkedOut,
+      condition_good: item.condition.good,
+      condition_fair: item.condition.fair,
+      condition_poor: item.condition.poor,
+      condition_broken: item.condition.broken,
+    }));
+
+    const csv = Papa.unparse(dataForCsv);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    const timestamp = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    link.setAttribute('download', `inventory_${timestamp}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [initialItems]);
+
   const handleCloseModal = useCallback(() => {
     setEditingItem(null);
   }, []);
@@ -79,6 +111,7 @@ export default function InventoryDashboard({ initialItems }: InventoryDashboardP
         sortOrder={sortOrder}
         setSortOrder={setSortOrder}
         onCreate={() => setIsCreating(true)}
+        onDownloadCsv={handleDownloadCsv}
       />
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
         {showNoDataBanner && (

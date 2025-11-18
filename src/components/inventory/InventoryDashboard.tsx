@@ -15,7 +15,6 @@ type InventoryDashboardProps = {
 };
 
 export default function InventoryDashboard({ initialItems }: InventoryDashboardProps) {
-  const [items, setItems] = useState<InventoryItem[]>(initialItems);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedLocation, setSelectedLocation] = useState('All');
@@ -88,7 +87,7 @@ export default function InventoryDashboard({ initialItems }: InventoryDashboardP
           </div>
         )}
         <InventoryList
-          items={items}
+          items={initialItems}
           searchTerm={searchTerm}
           selectedCategory={selectedCategory}
           selectedLocation={selectedLocation}
